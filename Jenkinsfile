@@ -27,12 +27,12 @@ pipeline {
                             sudo rm -rf ${PROJECT_DIR}
                             mkdir -p /home/ubuntu/pythonprojects
                             cd /home/ubuntu/pythonprojects
-                            git clone ${REPO_URL} djangotutorial
+                            git clone https://github.com/Monty-xx/exercise_4
 
                             # 4. Setup Environment
                             cd ${PROJECT_DIR}
                             python3 -m venv comp314
-                            source comp314/bin/activate
+                            . comp314/bin/activate
                             
                             # 5. Install Dependencies and Migrate
                             pip install --upgrade pip
