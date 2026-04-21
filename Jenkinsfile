@@ -4,7 +4,7 @@ pipeline {
     environment {
         // --- CONFIGURATION ---
         EC2_USER    = "ubuntu"
-        EC2_HOST    = "http://18.217.255.71" 
+        EC2_HOST    = "18.217.255.71" 
         CRED_ID     = "ec2-ssh-private-key"
         PROJECT_DIR = "/home/ubuntu/pythonprojects/exercise_4"
         REPO_URL    = "https://github.com/Monty-xx/exercise_4.git"
