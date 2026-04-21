@@ -4,7 +4,7 @@ pipeline {
     environment {
         // --- CONFIGURATION ---
         EC2_USER    = "ubuntu"
-        EC2_HOST    = "3.16.1.1" 
+        EC2_HOST    = "http://18.217.255.71" 
         CRED_ID     = "ec2-ssh-private-key"
         PROJECT_DIR = "/home/ubuntu/pythonprojects/djangotutorial"
         REPO_URL    = "https://github.com/Monty-xx/exercise_4.git"
@@ -56,7 +56,7 @@ pipeline {
 
     post {
         success {
-            echo "SUCCESS: Webpage should now be live at http://3.16.1.1:8000"
+            echo "SUCCESS: Webpage should now be live at http://http://18.217.255.71:8000"
         }
         failure {
             echo "FAILURE: Deployment failed. Check Jenkins logs for SSH or Python errors."
