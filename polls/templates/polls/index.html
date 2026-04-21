@@ -1,0 +1,21 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'polls/css/style.css' %}">
+
+<div class="container">
+
+    <h1>What's your vibe?</h1>
+    <h2>Tell me a bit about yourself!</h2>
+
+    {% if latest_question_list %}
+        <ul class="question-list">
+        {% for question in latest_question_list %}
+            <li class="question-item">
+                <a href="{% url 'polls:detail' question.id %}">
+                    {{ question.question_text }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No polls are available.</p>
+    {% endif %}
