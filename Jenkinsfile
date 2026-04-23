@@ -4,7 +4,7 @@ pipeline {
     environment {
         // --- CONFIGURATION ---
         EC2_USER    = "ubuntu"
-        EC2_HOST    = "3.17.208.196" 
+        EC2_HOST    = "3.17.73.104" 
         CRED_ID     = "ec2-ssh-private-key"
         PROJECT_DIR = "/home/ubuntu/pythonprojects/exercise_4"
         REPO_URL    = "https://github.com/Monty-xx/exercise_4.git"
@@ -56,7 +56,7 @@ pipeline {
 
     post {
         success {
-            echo "SUCCESS: Webpage should now be live at http://3.17.208.196:8000"
+            echo "SUCCESS: Webpage should now be live at http://3.17.73.104:8000"
         }
         failure {
             echo "FAILURE: Deployment failed. Check Jenkins logs for SSH or Python errors."
