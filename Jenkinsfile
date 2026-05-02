@@ -1,65 +1,132 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     environment {
-        // --- CONFIGURATION ---
-        EC2_USER    = "ubuntu"
-        EC2_HOST    = "3.142.73.70" 
-        CRED_ID     = "ec2-ssh-private-key"
-        PROJECT_DIR = "/home/ubuntu/pythonprojects/exercise_4"
-        REPO_URL    = "https://github.com/Monty-xx/exercise_4.git"
+        DOCKERHUB_USERNAME = "monty1010"
+        IMAGE_NAME     = "monty1010/jenkinstest"
+        IMAGE_TAG     = "latest"
+        CONTAINER_NAME = "jenkinstest"
+        HOST_PORT      = "8080"
+        CONTAINER_PORT = "80"
+    }
+
+    options {
+        timestamps()
     }
 
     stages {
-        stage('Clean Deploy & Start Server') {
+
+        stage('Checkout') {
             steps {
-                script {
-                    sshagent([CRED_ID]) {
-                        sh """
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "
-                            # 1. Update system and install necessary tools
-                            sudo apt-get update && sudo apt-get install -y python3-venv python3-pip git
+                git url: 'https://github.com/Monty-xx/exercise_4.git/', branch: 'main'
+            }
+        }
 
-                            # 2. Kill any old Django processes running on port 8000
-                            sudo fuser -k 8000/tcp || true
+        stage('Verify Project Files') {
+            steps {
+                sh '''
+                    set -e
+                    echo "Checking required project files..."
 
-                            # 3. Fresh Clone: Delete old folder and re-download
-                            sudo rm -rf ${PROJECT_DIR}
-                            mkdir -p /home/ubuntu/pythonprojects
-                            cd /home/ubuntu/pythonprojects
-                            git clone https://github.com/Monty-xx/exercise_4
+                    test -f Dockerfile || { echo "Dockerfile not found"; exit 1; }
+                    test -f nginx.conf || { echo "nginx.conf not found"; exit 1; }
+                    test -f index.html || { echo "index.html not found"; exit 1; }
+                    test -f sgustyle.css || { echo "sgustyle.css not found"; exit 1; }
+                    test -f sguscript.js || { echo "sguscript.js not found"; exit 1; }
+                    test -f grenada-updated.jpeg || { echo "grenada-updated.jpeg not found"; exit 1; }
 
-                            # 4. Setup Environment
-                            cd ${PROJECT_DIR}
-                            python3 -m venv comp314
-                            . comp314/bin/activate
-                            
-                            # 5. Install Dependencies and Migrate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
-                            python3 manage.py migrate --noinput
+                    echo "Required files found."
+                    ls -la
+                '''
+            }
+        }
 
-                            # 6. Start the server in the background
-                            # '0.0.0.0:8000' makes it public. 
-                            # 'nohup' and '&' keep it running after Jenkins leaves.
-                            BUILD_ID=dontKillMe nohup python3 manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
-                            
-                            sleep 2
-                            echo 'Server started at http://${EC2_HOST}:8000'
-                        "
-                        """
-                    }
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    set -e
+                    docker build --pull -t "$IMAGE_NAME" .
+                '''
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        set -e
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    '''
                 }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh '''
+                    set -e
+                    docker push "$IMAGE_NAME:$IMAGE_TAG"
+                '''
+            }
+        }
+
+        stage('Stop Old Container') {
+            steps {
+                sh '''
+                    set +e
+                    docker rm -f "$CONTAINER_NAME"
+                    true
+                '''
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                sh '''
+                    set -e
+                    docker run -d \
+                      --name "$CONTAINER_NAME" \
+                      --restart unless-stopped \
+                      -p "$HOST_PORT:$CONTAINER_PORT" \
+                      "$IMAGE_NAME:$IMAGE_TAG"
+                '''
+            }
+        }
+
+        stage('Test Website Locally') {
+            steps {
+                sh '''
+                    set -e
+                    sleep 2
+                    curl -I http://localhost:$HOST_PORT
+                '''
+            }
+        }
+
+        stage('Show Running Container') {
+            steps {
+                sh '''
+                    docker ps
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "SUCCESS: Webpage should now be live at http://3.142.73.70:8000"
+            echo 'Deployment successful.'
+            echo 'Open your EC2 public IP followed by :8081 in a browser to view the site.'
         }
         failure {
-            echo "FAILURE: Deployment failed. Check Jenkins logs for SSH or Python errors."
+            echo 'Deployment failed. Check the Jenkins console output.'
         }
     }
 }
