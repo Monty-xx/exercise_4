@@ -1,132 +1,32 @@
-pipeline {
+=pipeline {
     agent any
-
-    triggers {
-        githubPush()
-    }
-
     environment {
-        DOCKERHUB_USERNAME = "monty1010"
-        IMAGE_NAME     = "monty1010/jenkinstest"
-        IMAGE_TAG     = "latest"
-        CONTAINER_NAME = "jenkinstest"
-        HOST_PORT      = "8080"
-        CONTAINER_PORT = "80"
+        DOCKER_IMAGE = 'monty1010/django-app'
+        CONTAINER_NAME = 'django-app'
     }
-
-    options {
-        timestamps()
-    }
-
     stages {
-
-        stage('Checkout') {
+        stage('Build') {
             steps {
-                git url: 'https://github.com/Monty-xx/exercise_4.git/', branch: 'main'
-            }
-        }
-
-        stage('Verify Project Files') {
-            steps {
-                sh '''
-                    set -e
-                    echo "Checking required project files..."
-
-                    test -f Dockerfile || { echo "Dockerfile not found"; exit 1; }
-                    test -f nginx.conf || { echo "nginx.conf not found"; exit 1; }
-                    test -f index.html || { echo "index.html not found"; exit 1; }
-                    test -f sgustyle.css || { echo "sgustyle.css not found"; exit 1; }
-                    test -f sguscript.js || { echo "sguscript.js not found"; exit 1; }
-                    test -f grenada-updated.jpeg || { echo "grenada-updated.jpeg not found"; exit 1; }
-
-                    echo "Required files found."
-                    ls -la
-                '''
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                sh '''
-                    set -e
-                    docker build --pull -t "$IMAGE_NAME" .
-                '''
-            }
-        }
-
-        stage('Login to Docker Hub') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-credentials',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh '''
-                        set -e
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                    '''
+                script {
+                    dockerImage = docker.build("${DOCKER_IMAGE}:latest")
                 }
             }
         }
-
-        stage('Push Docker Image') {
+        stage('Push') {
             steps {
-                sh '''
-                    set -e
-                    docker push "$IMAGE_NAME:$IMAGE_TAG"
-                '''
+                script {
+                    docker.withRegistry('', 'docker-hub-credentials') {
+                        dockerImage.push()
+                    }
+                }
             }
         }
-
-        stage('Stop Old Container') {
+        stage('Deploy') {
             steps {
-                sh '''
-                    set +e
-                    docker rm -f "$CONTAINER_NAME"
-                    true
-                '''
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+                sh "docker run -d --name ${CONTAINER_NAME} -p 80:8000 ${DOCKER_IMAGE}:latest"
             }
-        }
-
-        stage('Run Container') {
-            steps {
-                sh '''
-                    set -e
-                    docker run -d \
-                      --name "$CONTAINER_NAME" \
-                      --restart unless-stopped \
-                      -p "$HOST_PORT:$CONTAINER_PORT" \
-                      "$IMAGE_NAME:$IMAGE_TAG"
-                '''
-            }
-        }
-
-        stage('Test Website Locally') {
-            steps {
-                sh '''
-                    set -e
-                    sleep 2
-                    curl -I http://localhost:$HOST_PORT
-                '''
-            }
-        }
-
-        stage('Show Running Container') {
-            steps {
-                sh '''
-                    docker ps
-                '''
-            }
-        }
-    }
-
-    post {
-        success {
-            echo 'Deployment successful.'
-            echo 'Open your EC2 public IP followed by :8081 in a browser to view the site.'
-        }
-        failure {
-            echo 'Deployment failed. Check the Jenkins console output.'
         }
     }
 }
