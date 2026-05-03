@@ -1,25 +1,20 @@
-FROM nginx:stable-alpine
+# Dockerfile (for Django app)
+FROM python:3.10-slim-buster
 
-# Copy your website files into the container
-RUN rm -rf /usr/share/nginx/html/*
-COPY index.html /usr/share/nginx/html/
-COPY sgustyle.css /usr/share/nginx/html/
-COPY sguscript.js /usr/share/nginx/html/
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-# Optional images/assets
-#COPY grenada.jpeg /usr/share/nginx/html/
-COPY grenada-updated.jpeg /usr/share/nginx/html/
+WORKDIR /app
 
-# Use to copy the entire folder
-#COPY ./html /usr/share/nginx/html
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy custom Nginx config (optional)
-# COPY ./nginx.conf /etc/nginx/nginx.conf
+COPY . .
 
-# Expose port 80
-EXPOSE 80
+RUN python manage.py collectstatic --noinput
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# No EXPOSE needed here – Gunicorn will listen on 8000 internally
+CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 your_project_name.wsgi:application"]
