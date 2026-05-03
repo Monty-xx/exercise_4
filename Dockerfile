@@ -1,20 +1,19 @@
-# Dockerfile (for Django app)
-FROM python:3.10-slim-buster
-
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
 RUN python manage.py collectstatic --noinput
 
-# No EXPOSE needed here – Gunicorn will listen on 8000 internally
-CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 your_project_name.wsgi:application"]
+EXPOSE 8000
+
+# Gunicorn (production) – replace 'your_project_name'
+CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 exercise_4.wsgi:application"]
